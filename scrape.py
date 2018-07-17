@@ -30,48 +30,15 @@ internal_url = 'https://www.injixo.com/me/dashboard'
 
 
 def main():
-
     # Get the parsed HTML code
     page_soup = loginAndScrape()
 
+    # Pull data from HTML for upcoming events
     try:
-        # Finds and prints the main event from the upcoming events section
-        main_event = page_soup.find('div', {'id': 'upcoming-list-next'}).text
-        main_event.replace('\n', ' ').replace('\r', '')
-        print(main_event)
-
-        # Finds and stores a list of upconming events and their information in variables
-        upcoming_events_rest = page_soup.find('div', {'id': 'upcoming-list-rest'})
-        upcoming_events_titles = upcoming_events_rest.findAll('span', {'class': 'agenda_event_title'})
-        upcoming_events_dates = upcoming_events_rest.findAll('div', {'class': 'event-date'})
-        upcoming_events_times = upcoming_events_rest.findAll('div', {'class': 'event-time'})
-
-        # Loops through list of upcoming events and extracts and formats the infomration removing unnecessary spaces and breaks
-        for i in range(len(upcoming_events_titles)):
-            title = upcoming_events_titles[i].text
-            title = title.replace('\n', ' ').replace('\r', '')
-            title = list(title)
-            title[0] = ''
-            title[len(title) - 1] = ''
-            title1 = ''.join(title)
-
-            date = upcoming_events_dates[i].text
-            date = list(date)
-            date[0] = ''
-            date1 = ''.join(date)
-
-            time = upcoming_events_times[i].text
-
-            print(time + ' ' + date1 + ' ' + title1)
-
-            # Print formatted output to csv file
-            if(i == 0):
-                remove(output_file_path)
-            csv = open(output_file_path, 'a+')
-            csv.write(str(i + 1) + '. ' + title1 + ', ' + date1 + ', ' + time + '\n')
-            csv.close()
-    except:
+        processUpcomingEvents(page_soup)
+    except Exception as e:
         print('Error reading schedule. Are you sure your login credentials are correct?')
+        print(e)
         exit(1)
 
 # Function to handle getting the raw HTML from Injxo
@@ -102,8 +69,56 @@ def loginAndScrape():
 
     # Use BeautifulSoup to parse the HTML code
     page_soup = soup(html, 'html.parser')
-
     return page_soup
 
+def processUpcomingEvents(page_soup):
+    # Finds and prints the main event from the upcoming events section
+    main_event = page_soup.find('div', {'id': 'upcoming-list-next'})
+    main_event_title = main_event.find('div', {'class': 'top-event'}).text
+    main_event_meta = main_event.find('div', {'class': 'meta'}).text
+    
+    # Fix grammar :)
+    if main_event_title == 'TeamBrief':
+        main_event_title = 'Team Brief'
+
+    # Aeparate date and time into different variables using
+    main_event_meta = main_event_meta.replace('\n', ' ').replace('\r', '')
+    main_event_date = main_event_meta[:13]
+    main_event_time = main_event_meta[15:]
+
+    print(main_event_date + ' ' + main_event_time + ' ' + main_event_title + ' [Main Event]')
+
+    # Finds and stores a list of upconming events and their information in variables
+    upcoming_events_rest = page_soup.find('div', {'id': 'upcoming-list-rest'})
+    upcoming_events_titles = upcoming_events_rest.findAll('span', {'class': 'agenda_event_title'})
+    upcoming_events_dates = upcoming_events_rest.findAll('div', {'class': 'event-date'})
+    upcoming_events_times = upcoming_events_rest.findAll('div', {'class': 'event-time'})
+
+    # Loops through list of upcoming events and extracts and formats the infomration removing unnecessary spaces and breaks
+    for i in range(len(upcoming_events_titles)):
+        title = upcoming_events_titles[i].text
+        title = title.replace('\n', ' ').replace('\r', '')
+        title = list(title)
+        title[0] = ''
+        title[len(title) - 1] = ''
+        title = ''.join(title)
+
+        date = upcoming_events_dates[i].text
+        date = list(date)
+        date[0] = ''
+        date = ''.join(date)
+
+        time = upcoming_events_times[i].text
+
+        print(date + ' ' + time + ' ' + title)
+
+        # Print formatted output to csv file
+        if(i == 0):
+            remove(output_file_path)
+        csv = open(output_file_path, 'a+')
+        csv.write(str(i + 1) + '. ' + title + ', ' + date + ', ' + time + '\n')
+        csv.close()
+
+# Run main function
 if __name__== "__main__":
     main()
