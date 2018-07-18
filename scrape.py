@@ -2,6 +2,7 @@ from os import remove, path
 from sys import exit, platform
 from selenium import webdriver
 from bs4 import BeautifulSoup as soup
+import datetime
 
 # Ensure the existance of the config file
 try:
@@ -13,10 +14,12 @@ except:
 try:
     email = config.username
     password = config.password
-    html_file_path = config.html_file
+    dashboard_file_path = config.dashboard_file
+    schedule_file_path = config.schedule_file
     output_file_path = config.output_file
-except:
+except Exception as e:
     print('Formatting error with config file. Is something missing?')
+    print(e)
     exit(1)
 
 # Get the correct webdriver for the OS
@@ -26,7 +29,8 @@ elif platform == 'linux' or 'linux2' or 'darwin':
     webdriver_loc = 'phantomjs'
 
 login_url = "https://www.injixo.com/login"
-internal_url = 'https://www.injixo.com/me/dashboard'
+dashboard_url = 'https://www.injixo.com/me/dashboard'
+schedule_url = 'https://www.injixo.com/me/schedule'
 
 
 def main():
@@ -36,6 +40,7 @@ def main():
     # Pull data from HTML for upcoming events
     try:
         processUpcomingEvents(page_soup)
+        processSevenDaySchedule(page_soup)
     except Exception as e:
         print('Error reading schedule. Are you sure your login credentials are correct?')
         print(e)
@@ -44,7 +49,7 @@ def main():
 # Function to handle getting the raw HTML from Injxo
 def loginAndScrape():
     # if the HTML code for the dashbaord has not already been downloaded, log in and download it
-    if not path.exists(html_file_path):
+    if not path.exists(dashboard_file_path):
         driver = webdriver.PhantomJS(webdriver_loc)
         driver.get(login_url)
         email_field = driver.find_element_by_id('email')
@@ -55,15 +60,22 @@ def loginAndScrape():
         password_field.send_keys(password)
         login_button.click()
 
-        driver.get(internal_url)
+        # Dashbaord HTML
+        driver.get(dashboard_url)
         html = driver.page_source
-        html_file = open(html_file_path, 'w+', encoding='utf-8')
-        html_file.write(html)
-        html_file.close()
+        dashboard_file = open(dashboard_file_path, 'w+', encoding='utf-8')
+        dashboard_file.write(html)
+        dashboard_file.close()
+
+        driver.get(schedule_url)
+        html = driver.page_source
+        dashboard_file = open(schedule_file_path, 'w+', encoding='utf-8')
+        dashboard_file.write(html)
+        dashboard_file.close()
     # end if
 
     # Read the local dashboard.html file and store it in a variable
-    html_file = open(html_file_path, 'r')
+    html_file = open(dashboard_file_path, 'r')
     html = html_file.read()
     html_file.close()
 
@@ -102,6 +114,8 @@ def processUpcomingEvents(page_soup):
         title[0] = ''
         title[len(title) - 1] = ''
         title = ''.join(title)
+        if title == 'TeamBrief':
+            title = 'Team Brief'
 
         date = upcoming_events_dates[i].text
         date = list(date)
@@ -118,6 +132,19 @@ def processUpcomingEvents(page_soup):
         csv = open(output_file_path, 'a+')
         csv.write(str(i + 1) + '. ' + title + ', ' + date + ', ' + time + '\n')
         csv.close()
+
+def processSevenDaySchedule(page_soup):
+    schedule = page_soup.find('div', {'class': 'pane'})
+    days = schedule.findAll('div', {'class': 'list-item--heading'})
+    today = datetime.datetime.today().strftime('%d %B, %Y')
+    today = list(today)
+    today[0] = '1'
+    today[1] = '8'
+    today = ''.join(today)
+    print(today)
+    currentDayTag = schedule.find('span', text=today)
+    print(currentDayTag.text)
+    
 
 # Run main function
 if __name__== "__main__":

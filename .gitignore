@@ -107,7 +107,7 @@ venv.bak/
 
 config\.py
 
-dashboard\.html
+*.html
 
 output\.csv
 
