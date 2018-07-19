@@ -2,6 +2,7 @@ from os import remove, path
 from sys import exit, platform
 from selenium import webdriver
 from bs4 import BeautifulSoup as soup
+from pymongo import MongoClient
 import datetime
 
 # Ensure the existance of the config file
@@ -32,10 +33,19 @@ login_url = "https://www.injixo.com/login"
 dashboard_url = 'https://www.injixo.com/me/dashboard'
 schedule_url = 'https://www.injixo.com/me/schedule'
 
+agent_username = config.username[:len(config.username) - 12]
+
+db_client = MongoClient(config.mongo_db_url)
+db = db_client.get_database()
+
+db_events = db.get_collection('events')
 
 def main():
     # Get the parsed HTML code
     page_soup = loginAndScrape()
+
+    # Cleanup Database
+    cleanDatabase()
 
     # Pull data from HTML for upcoming events
     try:
@@ -89,16 +99,21 @@ def processUpcomingEvents(page_soup):
     main_event_title = main_event.find('div', {'class': 'top-event'}).text
     main_event_meta = main_event.find('div', {'class': 'meta'}).text
     
-    # Fix grammar :)
+    # Fix spacing
     if main_event_title == 'TeamBrief':
         main_event_title = 'Team Brief'
 
-    # Aeparate date and time into different variables using
+    # Separate date and time into different variables
     main_event_meta = main_event_meta.replace('\n', ' ').replace('\r', '')
     main_event_date = main_event_meta[:13]
     main_event_time = main_event_meta[15:]
 
+    # Print results to console
     print(main_event_date + ' ' + main_event_time + ' ' + main_event_title + ' [Main Event]')
+
+    # Collects data and inserts into database
+    this_event = {'name' : main_event_title, 'date' : main_event_date, 'time' : main_event_time, 'isMain': True, 'agent' : agent_username}
+    db_events.insert_one(this_event)
 
     # Finds and stores a list of upconming events and their information in variables
     upcoming_events_rest = page_soup.find('div', {'id': 'upcoming-list-rest'})
@@ -108,30 +123,33 @@ def processUpcomingEvents(page_soup):
 
     # Loops through list of upcoming events and extracts and formats the infomration removing unnecessary spaces and breaks
     for i in range(len(upcoming_events_titles)):
+        # Find and format event title
         title = upcoming_events_titles[i].text
         title = title.replace('\n', ' ').replace('\r', '')
         title = list(title)
         title[0] = ''
         title[len(title) - 1] = ''
         title = ''.join(title)
+
+        # Fix spacing
         if title == 'TeamBrief':
             title = 'Team Brief'
 
+        # Find and format event date
         date = upcoming_events_dates[i].text
         date = list(date)
         date[0] = ''
         date = ''.join(date)
 
+        # Find event time
         time = upcoming_events_times[i].text
 
+        # Print result to console
         print(date + ' ' + time + ' ' + title)
 
-        # Print formatted output to csv file
-        if(i == 0):
-            remove(output_file_path)
-        csv = open(output_file_path, 'a+')
-        csv.write(str(i + 1) + '. ' + title + ', ' + date + ', ' + time + '\n')
-        csv.close()
+        # Collects data and inserts into database
+        this_event = {'name' : title, 'date' : date, 'time' : time, 'isMain': False, 'agent' : agent_username}
+        db_events.insert_one(this_event)
 
 def processSevenDaySchedule(page_soup):
     schedule = page_soup.find('div', {'class': 'pane'})
@@ -145,6 +163,9 @@ def processSevenDaySchedule(page_soup):
     currentDayTag = schedule.find('span', text=today)
     print(currentDayTag.text)
     
+def cleanDatabase():
+    db_events.drop()
+
 
 # Run main function
 if __name__== "__main__":
