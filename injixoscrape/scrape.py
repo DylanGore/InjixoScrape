@@ -24,9 +24,9 @@ except Exception as e:
 
 # Get the correct webdriver for the OS
 if platform == 'win32':
-    webdriver_loc = 'phantomjs.exe'
+    webdriver_loc = '../phantomjs.exe'
 elif platform == 'linux' or 'linux2' or 'darwin':
-    webdriver_loc = 'phantomjs'
+    webdriver_loc = '../phantomjs'
 
 login_url = "https://www.injixo.com/login"
 dashboard_url = 'https://www.injixo.com/me/dashboard'
@@ -64,9 +64,9 @@ def main(argv):
 # Function to handle getting the raw HTML from Injxo
 def loginAndScrape():
     # Create the html subdirectory if it doesn't already exist
-    if not path.exists('html'):
+    if not path.exists('../html'):
         try:
-            mkdir('html')
+            mkdir('../html')
         except Exception as e:
             print('Unable to create HTML directory!')
             print(e)
