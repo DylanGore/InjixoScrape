@@ -1,5 +1,5 @@
-from os import remove, path
-from sys import exit, platform
+from os import remove, path, mkdir, rmdir
+from sys import exit, platform, argv
 from selenium import webdriver
 from bs4 import BeautifulSoup as soup
 from pymongo import MongoClient
@@ -17,7 +17,6 @@ try:
     password = config.password
     dashboard_file_path = config.dashboard_file
     schedule_file_path = config.schedule_file
-    output_file_path = config.output_file
 except Exception as e:
     print('Formatting error with config file. Is something missing?')
     print(e)
@@ -40,7 +39,13 @@ db = db_client.get_database()
 
 db_events = db.get_collection('events')
 
-def main():
+
+def main(argv):
+    # If the 'new' argumnet is used when calling the script, delete all downloaded HTML
+    if 'new' in argv:
+        remove(dashboard_file_path)
+        remove(schedule_file_path)
+
     # Get the parsed HTML code
     page_soup = loginAndScrape()
 
@@ -58,6 +63,15 @@ def main():
 
 # Function to handle getting the raw HTML from Injxo
 def loginAndScrape():
+    # Create the html subdirectory if it doesn't already exist
+    if not path.exists('html'):
+        try:
+            mkdir('html')
+        except Exception as e:
+            print('Unable to create HTML directory!')
+            print(e)
+            exit(1)
+
     # if the HTML code for the dashbaord has not already been downloaded, log in and download it
     if not path.exists(dashboard_file_path):
         driver = webdriver.PhantomJS(webdriver_loc)
@@ -93,12 +107,13 @@ def loginAndScrape():
     page_soup = soup(html, 'html.parser')
     return page_soup
 
+
 def processUpcomingEvents(page_soup):
     # Finds and prints the main event from the upcoming events section
     main_event = page_soup.find('div', {'id': 'upcoming-list-next'})
     main_event_title = main_event.find('div', {'class': 'top-event'}).text
     main_event_meta = main_event.find('div', {'class': 'meta'}).text
-    
+
     # Fix spacing
     if main_event_title == 'TeamBrief':
         main_event_title = 'Team Brief'
@@ -112,7 +127,7 @@ def processUpcomingEvents(page_soup):
     print(main_event_date + ' ' + main_event_time + ' ' + main_event_title + ' [Main Event]')
 
     # Collects data and inserts into database
-    this_event = {'name' : main_event_title, 'date' : main_event_date, 'time' : main_event_time, 'isMain': True, 'agent' : agent_username}
+    this_event = {'name': main_event_title, 'date': main_event_date, 'time': main_event_time, 'isMain': True, 'agent': agent_username}
     db_events.insert_one(this_event)
 
     # Finds and stores a list of upconming events and their information in variables
@@ -148,25 +163,27 @@ def processUpcomingEvents(page_soup):
         print(date + ' ' + time + ' ' + title)
 
         # Collects data and inserts into database
-        this_event = {'name' : title, 'date' : date, 'time' : time, 'isMain': False, 'agent' : agent_username}
+        this_event = {'name': title, 'date': date, 'time': time, 'isMain': False, 'agent': agent_username}
         db_events.insert_one(this_event)
+
 
 def processSevenDaySchedule(page_soup):
     schedule = page_soup.find('div', {'class': 'pane'})
-    days = schedule.findAll('div', {'class': 'list-item--heading'})
+    #days = schedule.findAll('div', {'class': 'list-item--heading'})
     today = datetime.datetime.today().strftime('%d %B, %Y')
     today = list(today)
-    today[0] = '1'
-    today[1] = '8'
+    #today[0] = '1'
+    #today[1] = '9'
     today = ''.join(today)
     print(today)
     currentDayTag = schedule.find('span', text=today)
     print(currentDayTag.text)
-    
+
+
 def cleanDatabase():
     db_events.drop()
 
 
 # Run main function
-if __name__== "__main__":
-    main()
+if __name__ == "__main__":
+    main(argv[1:])
