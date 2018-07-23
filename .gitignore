@@ -112,3 +112,5 @@ config\.py
 output\.csv
 
 *.exe
+
+.idea/

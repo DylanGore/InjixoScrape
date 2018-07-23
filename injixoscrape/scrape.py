@@ -1,15 +1,16 @@
 from os import remove, path, mkdir
 from sys import exit, argv
 from selenium import webdriver
-from bs4 import BeautifulSoup as soup
+from bs4 import BeautifulSoup
 from pymongo import MongoClient
 import datetime
 
-# Ensure the existance of the config file
+# Ensure the existence of the config file
 try:
-    import config
-except:
+    import injixoscrape.config as config
+except Exception as ex:
     print('Config file is missing!')
+    print(ex)
     exit(1)
 
 try:
@@ -35,8 +36,8 @@ db_events = db.get_collection('events')
 
 
 def main(argv):
-    # If the 'new' argumnet is used when calling the script, delete all downloaded HTML
-    if 'new' in argv:
+    # If the 'new' argument is used when calling the script, delete all downloaded HTML
+    if 'new' in argv and path.exists(dashboard_file_path) and path.exists(schedule_file_path):
         remove(dashboard_file_path)
         remove(schedule_file_path)
 
@@ -55,18 +56,19 @@ def main(argv):
         print(e)
         exit(1)
 
-# Function to handle getting the raw HTML from Injxo
+
+# Function to handle getting the raw HTML from Injixo
 def loginAndScrape():
     # Create the html subdirectory if it doesn't already exist
-    if not path.exists('../html'):
+    if not path.exists('html'):
         try:
-            mkdir('../html')
+            mkdir('html')
         except Exception as e:
             print('Unable to create HTML directory!')
             print(e)
             exit(1)
 
-    # if the HTML code for the dashbaord has not already been downloaded, log in and download it
+    # if the HTML code for the dashboard has not already been downloaded, log in and download it
     if not path.exists(dashboard_file_path):
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
@@ -80,7 +82,7 @@ def loginAndScrape():
         password_field.send_keys(password)
         login_button.click()
 
-        # Dashbaord HTML
+        # Dashboard HTML
         driver.get(dashboard_url)
         html = driver.page_source
         dashboard_file = open(dashboard_file_path, 'w+', encoding='utf-8')
@@ -100,7 +102,7 @@ def loginAndScrape():
     html_file.close()
 
     # Use BeautifulSoup to parse the HTML code
-    page_soup = soup(html, 'html.parser')
+    page_soup = BeautifulSoup(html, 'html.parser')
     return page_soup
 
 
@@ -123,16 +125,17 @@ def processUpcomingEvents(page_soup):
     print(main_event_date + ' ' + main_event_time + ' ' + main_event_title + ' [Main Event]')
 
     # Collects data and inserts into database
-    this_event = {'name': main_event_title, 'date': main_event_date, 'time': main_event_time, 'isMain': True, 'agent': agent_username}
+    this_event = {'name': main_event_title, 'date': main_event_date, 'time': main_event_time, 'isMain': True,
+                  'agent': agent_username}
     db_events.insert_one(this_event)
 
-    # Finds and stores a list of upconming events and their information in variables
+    # Finds and stores a list of upcoming events and their information in variables
     upcoming_events_rest = page_soup.find('div', {'id': 'upcoming-list-rest'})
     upcoming_events_titles = upcoming_events_rest.findAll('span', {'class': 'agenda_event_title'})
     upcoming_events_dates = upcoming_events_rest.findAll('div', {'class': 'event-date'})
     upcoming_events_times = upcoming_events_rest.findAll('div', {'class': 'event-time'})
 
-    # Loops through list of upcoming events and extracts and formats the infomration removing unnecessary spaces and breaks
+    # Loops through list of upcoming events and extracts and formats the information removing unnecessary spaces and breaks
     for i in range(len(upcoming_events_titles)):
         # Find and format event title
         title = upcoming_events_titles[i].text
@@ -165,15 +168,15 @@ def processUpcomingEvents(page_soup):
 
 def processSevenDaySchedule(page_soup):
     schedule = page_soup.find('div', {'class': 'pane'})
-    #days = schedule.findAll('div', {'class': 'list-item--heading'})
+    # days = schedule.findAll('div', {'class': 'list-item--heading'})
     today = datetime.datetime.today().strftime('%d %B, %Y')
     today = list(today)
-    #today[0] = '1'
-    #today[1] = '9'
+    # today[0] = '1'
+    # today[1] = '9'
     today = ''.join(today)
     print(today)
-    currentDayTag = schedule.find('span', text=today)
-    print(currentDayTag.text)
+    current_day_tag = schedule.find('span', text=today)
+    print(current_day_tag.text)
 
 
 def cleanDatabase():
