@@ -1,5 +1,5 @@
-from os import remove, path, mkdir, rmdir
-from sys import exit, platform, argv
+from os import remove, path, mkdir
+from sys import exit, argv
 from selenium import webdriver
 from bs4 import BeautifulSoup as soup
 from pymongo import MongoClient
@@ -21,12 +21,6 @@ except Exception as e:
     print('Formatting error with config file. Is something missing?')
     print(e)
     exit(1)
-
-# Get the correct webdriver for the OS
-if platform == 'win32':
-    webdriver_loc = '../phantomjs.exe'
-elif platform == 'linux' or 'linux2' or 'darwin':
-    webdriver_loc = '../phantomjs'
 
 login_url = "https://www.injixo.com/login"
 dashboard_url = 'https://www.injixo.com/me/dashboard'
@@ -74,7 +68,9 @@ def loginAndScrape():
 
     # if the HTML code for the dashbaord has not already been downloaded, log in and download it
     if not path.exists(dashboard_file_path):
-        driver = webdriver.PhantomJS(webdriver_loc)
+        options = webdriver.ChromeOptions()
+        options.add_argument('headless')
+        driver = webdriver.Chrome(chrome_options=options)
         driver.get(login_url)
         email_field = driver.find_element_by_id('email')
         password_field = driver.find_element_by_id('password')
