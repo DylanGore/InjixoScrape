@@ -15,12 +15,13 @@ A python script designed to login and scrape and store shift and event data from
 1. Download and add ```chromedriver``` to path.
 2. Install Python 3 if it's not already installed.
 3. Install python dependencies ```pip install -r requirments.txt```.
+4. Rename the file ```config.sample.py``` to ```config.py``` and update the variables as needed
 
 ## Usage
 
 To run:
 
-```python injixoscrape```
+```python -m injixoscrape```
 
 Command line arguments:
 
