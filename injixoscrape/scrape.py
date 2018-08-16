@@ -38,6 +38,7 @@ db = db_client.get_database()
 
 db_events = db.get_collection('events')
 
+soup_dict = {}
 
 def main(argv):
     # If the 'new' argument is used when calling the script, delete all downloaded HTML
