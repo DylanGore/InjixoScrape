@@ -1,5 +1,6 @@
-from os import remove, path, mkdir
+from os import path, mkdir
 from sys import exit, argv
+from shutil import rmtree
 from selenium import webdriver
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
@@ -25,7 +26,10 @@ except Exception as e:
 
 login_url = "https://www.injixo.com/login"
 dashboard_url = 'https://www.injixo.com/me/dashboard'
-schedule_url = 'https://www.injixo.com/me/schedule'
+schedule_url = 'https://www.injixo.com/me/schedule/revise?calendar%5Bview_mode%5D='
+
+date_url = '%Y-%m-%d'
+date_display = '%d %B, %Y'
 
 agent_username = config.username[:len(config.username) - 12]
 
@@ -37,20 +41,19 @@ db_events = db.get_collection('events')
 
 def main(argv):
     # If the 'new' argument is used when calling the script, delete all downloaded HTML
-    if 'new' in argv and path.exists(dashboard_file_path) and path.exists(schedule_file_path):
-        remove(dashboard_file_path)
-        remove(schedule_file_path)
+    if 'new' in argv and path.exists('html'):
+        rmtree('html')
 
     # Get the parsed HTML code
-    page_soup = loginAndScrape()
+    loginAndScrape()
+    dashboard_soup = makeSoup(dashboard_file_path)
 
     # Cleanup Database
     cleanDatabase()
 
     # Pull data from HTML for upcoming events
     try:
-        processUpcomingEvents(page_soup)
-        processSevenDaySchedule(page_soup)
+        processUpcomingEvents(dashboard_soup)
     except Exception as e:
         print('Error reading schedule. Are you sure your login credentials are correct?')
         print(e)
@@ -83,28 +86,39 @@ def loginAndScrape():
         login_button.click()
 
         # Dashboard HTML
-        driver.get(dashboard_url)
-        html = driver.page_source
-        dashboard_file = open(dashboard_file_path, 'w+', encoding='utf-8')
-        dashboard_file.write(html)
-        dashboard_file.close()
+        scrapeSave(driver, dashboard_url, dashboard_file_path)
 
-        driver.get(schedule_url)
-        html = driver.page_source
-        dashboard_file = open(schedule_file_path, 'w+', encoding='utf-8')
-        dashboard_file.write(html)
-        dashboard_file.close()
+        today = datetime.datetime.today()
+        delta = datetime.timedelta(days=1)
+        curr_date = today
+        end_date = today + datetime.timedelta(days=6)
+        while curr_date <= end_date:
+            date_str = curr_date.strftime(date_url)
+            schedule_url_new = schedule_url + date_str
+            schedule_file_path_new = schedule_file_path + date_str + '.html'
+            print(date_str)
+            scrapeSave(driver, schedule_url_new, schedule_file_path_new)
+            soup = makeSoup(schedule_file_path_new)
+            processSevenDaySchedule(soup)
+            curr_date += delta
     # end if
 
-    # Read the local dashboard.html file and store it in a variable
-    html_file = open(dashboard_file_path, 'r')
-    html = html_file.read()
-    html_file.close()
+def scrapeSave(driver, url, path):
+    driver.get(url)
+    html = driver.page_source
+    file = open(path, 'w+', encoding='utf-8')
+    file.write(html)
+    file.close()
+
+def makeSoup(file_path):
+    # Read the given file and store it in a variable
+    file = open(file_path, 'r')
+    html = file.read()
+    file.close()
 
     # Use BeautifulSoup to parse the HTML code
-    page_soup = BeautifulSoup(html, 'html.parser')
-    return page_soup
-
+    soup = BeautifulSoup(html, 'html.parser')
+    return soup
 
 def processUpcomingEvents(page_soup):
     # Finds and prints the main event from the upcoming events section
@@ -167,16 +181,24 @@ def processUpcomingEvents(page_soup):
 
 
 def processSevenDaySchedule(page_soup):
-    schedule = page_soup.find('div', {'class': 'pane'})
-    # days = schedule.findAll('div', {'class': 'list-item--heading'})
-    today = datetime.datetime.today().strftime('%d %B, %Y')
-    today = list(today)
-    # today[0] = '1'
-    # today[1] = '9'
-    today = ''.join(today)
-    print(today)
-    current_day_tag = schedule.find('span', text=today)
-    print(current_day_tag.text)
+    #schedule = page_soup.find('div', {'id': 'calendar'})
+    events = page_soup.findAll('div', {'class': 'fc-content'})
+
+    for event in events:
+        event_time = event.find('div', {'class': 'fc-time'}).text
+        event_time_start = event_time[:5]
+        event_time_end = event_time[8:]
+
+        event_name = event.find('div', {'class': 'fc-title'}).text
+        print('EVENT: ' + event_time_start + ' - ' + event_time_end + ' ' + event_name)
+
+    # today = datetime.datetime.today().strftime(date_display)
+    # today = list(today)
+    # today = ''.join(today)
+    # print(today)
+    #current_day_tag = schedule.find('span', text=today)
+    #print(current_day_tag.text)
+    # print(events)
 
 
 def cleanDatabase():

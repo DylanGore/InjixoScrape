@@ -6,4 +6,4 @@ db_password = ''
 mongo_db_url = ''
 
 dashboard_file = r'html/dashboard.html'
-schedule_file = r'html/schedule.html'
+schedule_file = r'html/schedule-'
