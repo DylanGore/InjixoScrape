@@ -26,7 +26,7 @@ except Exception as e:
 
 login_url = "https://www.injixo.com/login"
 dashboard_url = 'https://www.injixo.com/me/dashboard'
-schedule_url = 'https://www.injixo.com/me/schedule/revise?calendar%5Bview_mode%5D='
+schedule_url = 'https://www.injixo.com/me/schedule/revise?calendar%5Bdate%5D='
 
 date_url = '%Y-%m-%d'
 date_display = '%d %B, %Y'
@@ -54,6 +54,8 @@ def main(argv):
     # Pull data from HTML for upcoming events
     try:
         processUpcomingEvents(dashboard_soup)
+        for item in soup_dict:
+            processSevenDaySchedule(item, soup_dict[item])
     except Exception as e:
         print('Error reading schedule. Are you sure your login credentials are correct?')
         print(e)
@@ -96,12 +98,13 @@ def loginAndScrape():
             date_str = curr_date.strftime(date_url)
             schedule_url_new = schedule_url + date_str
             schedule_file_path_new = schedule_file_path + date_str + '.html'
-            print(date_str)
+            print('Saving schedule for: ' + date_str)
             scrapeSave(driver, schedule_url_new, schedule_file_path_new)
-            soup = makeSoup(schedule_file_path_new)
-            processSevenDaySchedule(soup)
+            soup = makeCalendarSoup(schedule_file_path_new)
+            soup_dict[date_str] = soup
             curr_date += delta
     # end if
+
 
 def scrapeSave(driver, url, path):
     driver.get(url)
@@ -109,6 +112,7 @@ def scrapeSave(driver, url, path):
     file = open(path, 'w+', encoding='utf-8')
     file.write(html)
     file.close()
+
 
 def makeSoup(file_path):
     # Read the given file and store it in a variable
@@ -119,6 +123,19 @@ def makeSoup(file_path):
     # Use BeautifulSoup to parse the HTML code
     soup = BeautifulSoup(html, 'html.parser')
     return soup
+
+
+def makeCalendarSoup(file_path):
+    # Read the given file and store it in a variable
+    file = open(file_path, 'r')
+    html = file.read()
+    file.close()
+
+    # Use BeautifulSoup to parse the HTML code
+    soup = BeautifulSoup(html, 'html.parser')
+    cal_soup = soup.find('div', {'id': 'calendar'})
+    return cal_soup
+
 
 def processUpcomingEvents(page_soup):
     # Finds and prints the main event from the upcoming events section
@@ -134,6 +151,9 @@ def processUpcomingEvents(page_soup):
     main_event_meta = main_event_meta.replace('\n', ' ').replace('\r', '')
     main_event_date = main_event_meta[:13]
     main_event_time = main_event_meta[15:]
+
+    # Print Title
+    print('\nUpcoming Events:')
 
     # Print results to console
     print(main_event_date + ' ' + main_event_time + ' ' + main_event_title + ' [Main Event]')
@@ -180,24 +200,25 @@ def processUpcomingEvents(page_soup):
         db_events.insert_one(this_event)
 
 
-def processSevenDaySchedule(page_soup):
-    #schedule = page_soup.find('div', {'id': 'calendar'})
+def processSevenDaySchedule(date, page_soup):
+    # schedule = page_soup.find('div', {'id': 'calendar'})
     events = page_soup.findAll('div', {'class': 'fc-content'})
-
+    
+    print(date)
     for event in events:
         event_time = event.find('div', {'class': 'fc-time'}).text
         event_time_start = event_time[:5]
         event_time_end = event_time[8:]
 
         event_name = event.find('div', {'class': 'fc-title'}).text
-        print('EVENT: ' + event_time_start + ' - ' + event_time_end + ' ' + event_name)
+        print(event_time_start + ' - ' + event_time_end + ' ' + event_name)
 
     # today = datetime.datetime.today().strftime(date_display)
     # today = list(today)
     # today = ''.join(today)
     # print(today)
-    #current_day_tag = schedule.find('span', text=today)
-    #print(current_day_tag.text)
+    # current_day_tag = schedule.find('span', text=today)
+    # print(current_day_tag.text)
     # print(events)
 
 
