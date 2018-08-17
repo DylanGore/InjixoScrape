@@ -4,7 +4,7 @@ from shutil import rmtree
 from selenium import webdriver
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
-import datetime
+from datetime import datetime, timedelta
 
 # Ensure the existence of the config file
 try:
@@ -37,8 +37,10 @@ db_client = MongoClient(config.mongo_db_url)
 db = db_client.get_database()
 
 db_events = db.get_collection('events')
+db_schedule = db.get_collection('schedule')
 
 soup_dict = {}
+
 
 def main(argv):
     # If the 'new' argument is used when calling the script, delete all downloaded HTML
@@ -91,10 +93,10 @@ def loginAndScrape():
         # Dashboard HTML
         scrapeSave(driver, dashboard_url, dashboard_file_path)
 
-        today = datetime.datetime.today()
-        delta = datetime.timedelta(days=1)
+        today = datetime.today()
+        delta = timedelta(days=1)
         curr_date = today
-        end_date = today + datetime.timedelta(days=6)
+        end_date = today + timedelta(days=6)
         while curr_date <= end_date:
             date_str = curr_date.strftime(date_url)
             schedule_url_new = schedule_url + date_str
@@ -202,9 +204,9 @@ def processUpcomingEvents(page_soup):
 
 
 def processSevenDaySchedule(date, page_soup):
-    # schedule = page_soup.find('div', {'id': 'calendar'})
+    this_events = []
     events = page_soup.findAll('div', {'class': 'fc-content'})
-    
+
     print(date)
     for event in events:
         event_time = event.find('div', {'class': 'fc-time'}).text
@@ -214,17 +216,43 @@ def processSevenDaySchedule(date, page_soup):
         event_name = event.find('div', {'class': 'fc-title'}).text
         print(event_time_start + ' - ' + event_time_end + ' ' + event_name)
 
-    # today = datetime.datetime.today().strftime(date_display)
-    # today = list(today)
-    # today = ''.join(today)
-    # print(today)
-    # current_day_tag = schedule.find('span', text=today)
-    # print(current_day_tag.text)
-    # print(events)
+        this_event = {'title': event_name, 'start_time': event_time_start, 'end_time': event_time_end,
+                      'length': getEventLength(event_time_start, event_time_end),
+                      'type': getEventType(event_name)}
+        this_events.append(this_event)
+
+    this_schedule = {
+        'date': date,
+        'events': this_events
+    }
+    db_schedule.insert_one(this_schedule)
 
 
 def cleanDatabase():
     db_events.drop()
+    db_schedule.drop()
+
+
+def getEventType(event_name):
+    return {
+        'Technical': 'Work',
+        'Break': 'Break',
+        'Lunch': 'Break',
+        'Training': 'Time Off',
+        'Training Mandatory': 'Time Off',
+        'Digital Academy': 'Time Off',
+        'TeamBrief': 'Time Off',
+        'One to One meeting': 'Time Off',
+        'Meeting': 'Time Off',
+        'QBU': 'Time Off',
+        'Vacation': 'Holiday'
+    }.get(event_name, 'Time Off')
+
+
+def getEventLength(start, end):
+    time_str = '%H:%M'
+    delta = datetime.strptime(end, time_str) - datetime.strptime(start, time_str)
+    return str(delta)
 
 
 # Run main function
