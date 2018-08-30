@@ -215,7 +215,6 @@ def processUpcomingEvents(page_soup):
 
         # Find event time
         if i <= len(upcoming_events_times) - 1:
-            print('i: ' + str(i))
             time = upcoming_events_times[i].text
         else:
             # Fixes issues caused if no time is associated (ie. vacation days)
