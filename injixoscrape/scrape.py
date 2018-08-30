@@ -208,11 +208,18 @@ def processUpcomingEvents(page_soup):
         # Find and format event date
         date = upcoming_events_dates[i].text
         date = list(date)
-        date[0] = ''
+        # Remove leading blank space if one exists
+        if date[0] == ' ':
+            date[0] = ''
         date = ''.join(date)
 
         # Find event time
-        time = upcoming_events_times[i].text
+        if i <= len(upcoming_events_times) - 1:
+            print('i: ' + str(i))
+            time = upcoming_events_times[i].text
+        else:
+            # Fixes issues caused if no time is associated (ie. vacation days)
+            time = 'N/A'
 
         # Collects data and inserts into database
         this_event = {'name': title, 'date': date, 'time': time, 'isMain': False, 'agent': agent_username}
