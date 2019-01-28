@@ -9,6 +9,7 @@ A python script designed to login and scrape and store shift and event data from
   - [Selenium](https://www.seleniumhq.org/)
   - [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/)
   - [PyMongo](https://api.mongodb.com/python/current/)
+  - [dnspython](https://github.com/rthalley/dnspython)
 
 ## Installation
 

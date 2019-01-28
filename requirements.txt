@@ -1,3 +1,4 @@
 pymongo
 bs4
 selenium
+dnspython
